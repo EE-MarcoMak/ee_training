@@ -1,6 +1,7 @@
+#include <avdweb_VirtualDelay.h>
 #include <Servo.h>
-#define LEFT_DEFAULT {9, 5, 7, false, gate_left}
-#define RIGHT_DEFAULT {10, 6, 8, false, gate_right}
+#define LEFT_DEFAULT {9, 2, 7, false, gate_left}
+#define RIGHT_DEFAULT {10, 3, 8, false, gate_right}
 
 //The reference position for the servo
 struct Gate_Ref{
@@ -32,10 +33,13 @@ bool check_occupied(const int& pin_switch){
   else 
     return !first; //TRUE if the button is pressed
 }
+int LeftButtonStatus;
+int RightButtonStatus = 0;
+VirtualDelay singleDelay;
+VirtualDelay secondDelay;
 
 void setup()
 {
-  //Setup the control and state of the Right gate
   pinMode(right.pin_switch, INPUT_PULLUP);
   pinMode(right.pin_servo, OUTPUT);
   pinMode(right.pin_indicator, OUTPUT);
@@ -44,8 +48,6 @@ void setup()
   right.servo.write(right.ref.CLOSE);
   delay(15);
   
-
-  //Setup the control and state of the Left gate
   pinMode(left.pin_switch, INPUT_PULLUP);
   pinMode(left.pin_servo, OUTPUT);
   pinMode(left.pin_indicator, OUTPUT);
@@ -53,36 +55,42 @@ void setup()
   left.servo.attach(left.pin_servo);
   left.servo.write(left.ref.CLOSE);
   delay(15);
-  
-  //Serial.begin(115200);
+  attachInterrupt(digitalPinToInterrupt(right.pin_switch), right_trigger, FALLING);
+  attachInterrupt(digitalPinToInterrupt(left.pin_switch), left_trigger, FALLING);
+  Serial.begin(115200);
 }
 
 //Open the gate if the button state is swithced from OCCUPIED to VACANT, and close the gate automatically after 2 seconds.
 void loop(){
-  if (!right.occupied){
-    right.occupied = check_occupied(right.pin_switch);
-    if (right.occupied){
+    if (RightButtonStatus == 1){
       digitalWrite(right.pin_indicator, HIGH);
       right.servo.write(right.ref.OPEN);
-      delay(2000);
-      right.servo.write(right.ref.CLOSE);
-      delay(15);
+      singleDelay.start(2000); // calls while running are ignored
       digitalWrite(right.pin_indicator, LOW);
+      RightButtonStatus = 0;
     }
-  } else {
-    right.occupied = check_occupied(right.pin_switch);
-  }
-  if (!left.occupied){
-    left.occupied = check_occupied(left.pin_switch);
-    if (left.occupied){
+    if(singleDelay.elapsed()) {
+      right.servo.write(right.ref.CLOSE);    
+    }
+      
+      
+    if (LeftButtonStatus == 1){
       digitalWrite(left.pin_indicator, HIGH);
       left.servo.write(left.ref.OPEN);
-      delay(2000);
-      left.servo.write(left.ref.CLOSE);
-      delay(15);
+      secondDelay.start(2000); // calls while running are ignored
       digitalWrite(left.pin_indicator, LOW);
+      LeftButtonStatus = 0;
     }
-  } else {
-    left.occupied = check_occupied(left.pin_switch);
-  }
+    if(secondDelay.elapsed()) { 
+    left.servo.write(left.ref.CLOSE);
+    }    
+}
+
+void left_trigger(){
+  LeftButtonStatus = 1;
+  
+}
+
+void right_trigger(){
+  RightButtonStatus = 1;
 }
